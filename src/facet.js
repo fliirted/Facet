@@ -1,0 +1,131 @@
+(function () {
+    const editor = document.getElementById("editor");
+    if (!editor) return;
+    const ecs = getComputedStyle(editor);
+
+    // Wrapper
+    const wrapper = document.createElement("div");
+    const SIZE_PROPS = ["width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight"];
+    const LAYOUT_PROPS = [
+        "display", "position", "top", "right", "bottom", "left",
+        "marginTop", "marginRight", "marginBottom", "marginLeft",
+        "flexGrow", "flexShrink", "flexBasis", "alignSelf", "justifySelf",
+        "gridColumn", "gridRow", "gridArea",
+        "float", "clear", "verticalAlign",
+        "boxSizing", "zIndex",
+    ];
+
+    // Walk down stylesheets for values.
+    for (const sheet of Array.from(document.styleSheets)) {
+        let rules;
+        try { rules = Array.from(sheet.cssRules); } catch { continue; }
+        for (const rule of rules) {
+            if (!rule.selectorText || !editor.matches(rule.selectorText)) continue;
+            for (const prop of [...SIZE_PROPS, ...LAYOUT_PROPS]) {
+                const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+                const val = rule.style[camel];
+                if (val) wrapper.style[camel] = val;
+            }
+        }
+    }
+
+    // Inline styles on the element override everything.
+    for (const prop of [...SIZE_PROPS, ...LAYOUT_PROPS]) {
+        const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        if (editor.style[camel]) wrapper.style[camel] = editor.style[camel];
+    }
+
+    // Fallback
+    if (!wrapper.style.width)  wrapper.style.width  = ecs.width;
+    if (!wrapper.style.height) wrapper.style.height = ecs.height;
+
+    wrapper.style.position = "relative";
+    editor.style.position  = "absolute";
+    editor.style.top       = "0";
+    editor.style.left      = "0";
+    editor.style.width     = "100%";
+    editor.style.height    = "100%";
+    editor.style.margin    = "0";
+    editor.style.boxSizing = "border-box";
+    for (const prop of LAYOUT_PROPS) {
+        const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        editor.style[camel] = "";
+    }
+    editor.parentNode.insertBefore(wrapper, editor);
+    wrapper.appendChild(editor);
+
+    // Gutter
+    const gutter = document.createElement("div");
+    gutter.id              = "editor-line-numbers";
+    gutter.className       = "line-numbers";
+    gutter.style.position  = "absolute";
+    gutter.style.top       = "0";
+    gutter.style.left      = "0";
+    gutter.style.overflow  = "hidden";
+    gutter.style.pointerEvents = "none";
+    gutter.style.userSelect    = "none";
+    gutter.style.zIndex        = "1";
+    wrapper.appendChild(gutter);
+    const INHERIT = [
+        "fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant",
+        "lineHeight", "letterSpacing", "wordSpacing",
+        "paddingTop", "paddingBottom",
+        "borderTopWidth", "borderBottomWidth",
+        "borderTopStyle", "borderBottomStyle",
+        "borderTopColor", "borderBottomColor",
+        "borderTopLeftRadius", "borderBottomLeftRadius",
+
+        "boxSizing", "color", "backgroundColor", "backgroundImage",
+        "opacity", "tabSize",
+    ];
+    const originalPaddingLeft = parseFloat(ecs.paddingLeft) || 0;
+    let lastGutterWidth = 0;
+
+    // Update
+    function update() {
+        const cs = getComputedStyle(editor);
+        for (const prop of INHERIT) {
+            gutter.style[prop] = cs[prop];
+        }
+        gutter.style.height = editor.offsetHeight + "px";
+        gutter.style.left   = (parseFloat(cs.borderLeftWidth) || 0) + "px";
+        const lines = editor.value.split("\n");
+        const count = lines.length;
+        while (gutter.children.length > count) gutter.removeChild(gutter.lastChild);
+        for (let i = 0; i < count; i++) {
+            let row = gutter.children[i];
+            if (!row) {
+                row = document.createElement("div");
+                row.style.lineHeight = "inherit";
+                row.style.whiteSpace = "pre";
+                row.style.textAlign  = "right";
+                gutter.appendChild(row);
+            }
+            const label = String(i + 1);
+            if (row.textContent !== label) row.textContent = label;
+        }
+        gutter.scrollTop = editor.scrollTop;
+        const gw = gutter.offsetWidth;
+        if (gw !== lastGutterWidth) {
+            lastGutterWidth = gw;
+            editor.style.paddingLeft = (originalPaddingLeft + gw) + "px";
+        }
+    }
+
+    // Events
+    editor.addEventListener("input",   update);
+    editor.addEventListener("keydown", update);
+    editor.addEventListener("scroll",  () => { gutter.scrollTop = editor.scrollTop; });
+    editor.addEventListener("wheel", (e) => {
+        if (e.shiftKey) {
+            e.preventDefault();
+            editor.scrollLeft += e.deltaY;
+        }
+    });
+    window.addEventListener("resize", update);
+    if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(update).observe(wrapper);
+    }
+
+    update();
+})();

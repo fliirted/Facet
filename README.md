@@ -1,2 +1,15 @@
 # Facet
-A lightweight, drop-in UI suite that adds structure ̷a̷n̷d̷ ̷c̷o̷l̷o̷r̷ to your Pyrite editor.
+A lightweight, drop-in UI suite that adds structure ~~and color~~ to your Pyrite editor.
+
+### Quick Start
+
+Integrate Facet into your Pyrite editor with just a few lines of HTML:
+
+```html
+<textarea id="editor"></textarea>
+
+<script src="https://cdn.jsdelivr.net/gh/fliirted/Facet/dist/facet.min.js"></script>
+```
+
+### In Construction
+- **Syntax highlights:** Full support for Python syntax colors.
